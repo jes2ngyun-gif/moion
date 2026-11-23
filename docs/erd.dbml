@@ -406,9 +406,9 @@ Ref r27: payer_share.order_sheet_id > order_sheet.id
 Ref r28: payer_share.member_id > member.id
 Ref r29: payer_share.amount_confirmation_id > amount_confirmation.id
 Ref r30: payer_share.share_exclusion_consent_id > share_exclusion_consent.id
-Ref r31: store_request.order_sheet_id > order_sheet.id
+Ref r31: order_sheet.id - store_request.order_sheet_id
 Ref r32: store_request.responded_by > store_staff.id
-Ref r33: reservation.(store_request_id, order_sheet_id) > store_request.(id, order_sheet_id)
+Ref r33: store_request.(id, order_sheet_id) - reservation.(store_request_id, order_sheet_id)
 Ref r34: payment.(reservation_id, order_sheet_id) > reservation.(id, order_sheet_id)
 Ref r35: payment.(payer_share_id, order_sheet_id) > payer_share.(id, order_sheet_id)
 Ref r36: business_event.gathering_id > gathering.id
