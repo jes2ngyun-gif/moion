@@ -1,0 +1,429 @@
+// 모이온(MOION) 1단계 ERD v0.4 · 25개 테이블 · 2026-11-23
+// 도면(erd/moion-erd-v0.4.svg)과 같은 내용을 DBML로 옮긴 편집 원본이다. 설명과 설계 근거는 erd.md를 따른다.
+// 상태: 설계 대조 완료, MySQL DDL·동시성 검증 전. VARCHAR 길이는 DDL에서 용도별로 정한다.
+// 키 표기: PK 기본 키, F 외래 키, U 유일 키(같은 번호는 복합 유일), G 생성 열, EXT 외부(PortOne) 값, L 논리 참조.
+// 활성 행만 유일(active_*): 유효할 때만 값이 있고 끝나면 NULL인 열에 유일 키를 건다(erd.md 8-0).
+
+Table member {
+  id bigint [pk, not null]
+  email varchar [not null]
+  password_hash varchar [not null]
+  name varchar [not null]
+  di_hash varchar [not null]
+  birth_date date [not null]
+  auth_route varchar [not null]
+  is_operator boolean [not null]
+  status varchar [not null]
+  created_at datetime(6) [not null]
+  indexes {
+    email [unique, name: 'member_u1']
+    di_hash [unique, name: 'member_u2']
+  }
+  Note: '회원'
+}
+
+Table store {
+  id bigint [pk, not null]
+  name varchar [not null]
+  open_time time [not null]
+  close_time time [not null]
+  min_party int [not null]
+  max_party int [not null]
+  created_at datetime(6) [not null]
+  Note: '매장'
+}
+
+Table store_staff {
+  id bigint [pk, not null]
+  member_id bigint [not null]
+  store_id bigint [not null]
+  status varchar [not null]
+  granted_by bigint [not null]
+  granted_at datetime(6) [not null]
+  revoked_by bigint [null]
+  revoked_at datetime(6) [null]
+  active_key varchar [null, note: '생성 열']
+  indexes {
+    active_key [unique, name: 'store_staff_u1']
+  }
+  Note: '직원 소속·부여 이력'
+}
+
+Table store_staff_grant_request {
+  grant_request_id varchar [pk, not null]
+  store_staff_id bigint [not null]
+  Note: '직원 권한 부여 요청'
+}
+
+Table time_slot {
+  id bigint [pk, not null]
+  store_id bigint [not null]
+  starts_at datetime(6) [not null]
+  ends_at datetime(6) [not null]
+  capacity int [not null]
+  secured_count int [not null]
+  Note: '예약 회차와 좌석'
+}
+
+Table menu {
+  id bigint [pk, not null]
+  store_id bigint [not null]
+  name varchar [not null]
+  price bigint [not null]
+  is_preorderable boolean [not null]
+  is_alcohol boolean [not null]
+  status varchar [not null]
+  Note: '매장 메뉴'
+}
+
+Table gathering {
+  id bigint [pk, not null]
+  host_member_id bigint [not null]
+  time_slot_id bigint [not null]
+  status varchar [not null]
+  draft_revision int [not null]
+  next_version int [not null]
+  created_at datetime(6) [not null]
+  closed_at datetime(6) [null]
+  Note: '모임'
+}
+
+Table invite_link {
+  id bigint [pk, not null]
+  gathering_id bigint [not null]
+  version int [not null]
+  token varchar [not null]
+  status varchar [not null]
+  issued_at datetime(6) [not null]
+  ended_at datetime(6) [null]
+  active_gathering_id bigint [null, note: '생성 열']
+  indexes {
+    token [unique, name: 'invite_link_u1']
+    (gathering_id, version) [unique, name: 'invite_link_u2']
+    active_gathering_id [unique, name: 'invite_link_u3']
+  }
+  Note: '초대 링크'
+}
+
+Table participant {
+  id bigint [pk, not null]
+  gathering_id bigint [not null]
+  member_id bigint [not null]
+  time_slot_id bigint [not null]
+  status varchar [not null]
+  reconfirm_from_revision int [not null]
+  joined_at datetime(6) [not null]
+  left_at datetime(6) [null]
+  active_slot_id bigint [null]
+  indexes {
+    (gathering_id, member_id) [unique, name: 'participant_u1']
+    (member_id, active_slot_id) [unique, name: 'participant_u2']
+  }
+  Note: '참여자'
+}
+
+Table gathering_block {
+  id bigint [pk, not null]
+  gathering_id bigint [not null]
+  member_id bigint [not null]
+  blocked_by bigint [not null]
+  blocked_at datetime(6) [not null]
+  unblocked_at datetime(6) [null]
+  active_key varchar [null, note: '생성 열']
+  indexes {
+    active_key [unique, name: 'gathering_block_u1']
+  }
+  Note: '참여 차단'
+}
+
+Table companion {
+  id bigint [pk, not null]
+  participant_id bigint [not null]
+  share_units int [not null]
+  Note: '동반인'
+}
+
+Table cart_item {
+  id bigint [pk, not null]
+  gathering_id bigint [not null]
+  menu_id bigint [not null]
+  quantity int [not null]
+  updated_by bigint [not null]
+  updated_at datetime(6) [not null]
+  indexes {
+    (gathering_id, menu_id) [unique, name: 'cart_item_u1']
+  }
+  Note: '공동 장바구니'
+}
+
+Table amount_confirmation {
+  id bigint [pk, not null]
+  gathering_id bigint [not null]
+  member_id bigint [not null]
+  draft_revision int [not null]
+  time_slot_id bigint [not null]
+  amount bigint [not null]
+  share_units int [not null]
+  full_refund_minutes_before int [not null]
+  cancel_penalty_rate int [not null]
+  noshow_penalty_rate int [not null]
+  confirmed_at datetime(6) [not null]
+  indexes {
+    (gathering_id, member_id, draft_revision) [unique, name: 'amount_confirmation_u1']
+  }
+  Note: '금액·환불 기준 확인'
+}
+
+Table share_exclusion_consent {
+  id bigint [pk, not null]
+  gathering_id bigint [not null]
+  member_id bigint [not null]
+  draft_revision int [not null]
+  before_amount bigint [not null]
+  after_amount bigint [not null]
+  reason varchar [not null]
+  consented_at datetime(6) [not null]
+  indexes {
+    (gathering_id, member_id, draft_revision) [unique, name: 'share_exclusion_consent_u1']
+  }
+  Note: '분담 제외 동의'
+}
+
+Table order_sheet {
+  id bigint [pk, not null]
+  gathering_id bigint [not null]
+  version int [not null]
+  time_slot_id bigint [not null]
+  visitor_count int [not null]
+  share_count int [not null]
+  total_amount bigint [not null]
+  status varchar [not null]
+  confirmed_at datetime(6) [not null]
+  voided_at datetime(6) [null]
+  void_reason varchar [null]
+  indexes {
+    (gathering_id, version) [unique, name: 'order_sheet_u1']
+  }
+  Note: '확정 주문서'
+}
+
+Table order_sheet_item {
+  id bigint [pk, not null]
+  order_sheet_id bigint [not null]
+  menu_id bigint [not null]
+  menu_name varchar [not null]
+  unit_price bigint [not null]
+  quantity int [not null]
+  line_amount bigint [not null]
+  indexes {
+    (order_sheet_id, menu_id) [unique, name: 'order_sheet_item_u1']
+  }
+  Note: '주문 품목 사본'
+}
+
+Table payer_share {
+  id bigint [pk, not null]
+  order_sheet_id bigint [not null]
+  member_id bigint [not null]
+  share_units int [not null]
+  amount bigint [not null]
+  is_host boolean [not null]
+  amount_confirmation_id bigint [not null]
+  share_exclusion_consent_id bigint [null]
+  indexes {
+    (order_sheet_id, member_id) [unique, name: 'payer_share_u1']
+    (id, order_sheet_id) [unique, name: 'payer_share_u2']
+  }
+  Note: '결제자별 확정 몫'
+}
+
+Table store_request {
+  id bigint [pk, not null]
+  order_sheet_id bigint [not null]
+  requested_at datetime(6) [not null]
+  response_deadline datetime(6) [not null]
+  result varchar [not null]
+  responded_at datetime(6) [null]
+  responded_by bigint [null]
+  reject_reason varchar [null]
+  indexes {
+    order_sheet_id [unique, name: 'store_request_u1']
+    (id, order_sheet_id) [unique, name: 'store_request_u2']
+  }
+  Note: '매장 수락 요청'
+}
+
+Table reservation {
+  id bigint [pk, not null]
+  store_request_id bigint [not null]
+  order_sheet_id bigint [not null]
+  secured_visitor_count int [not null]
+  payment_start_deadline datetime(6) [not null]
+  payment_deadline datetime(6) [not null]
+  status varchar [not null]
+  confirmed_at datetime(6) [null]
+  ended_at datetime(6) [null]
+  indexes {
+    store_request_id [unique, name: 'reservation_u1']
+    (id, order_sheet_id) [unique, name: 'reservation_u2']
+  }
+  Note: '수락된 예약'
+}
+
+Table payment {
+  id bigint [pk, not null]
+  portone_payment_id varchar [not null, note: 'PortOne 값']
+  reservation_id bigint [not null]
+  payer_share_id bigint [not null]
+  order_sheet_id bigint [not null]
+  amount bigint [not null]
+  status varchar [not null]
+  started_at datetime(6) [not null]
+  pg_approved_at datetime(6) [null]
+  recorded_paid_at datetime(6) [null]
+  counted_share_id bigint [null]
+  indexes {
+    portone_payment_id [unique, name: 'payment_u1']
+    counted_share_id [unique, name: 'payment_u2']
+  }
+  Note: '원결제와 승인'
+}
+
+Table webhook_event {
+  id bigint [pk, not null]
+  portone_webhook_id varchar [not null, note: 'PortOne 값']
+  event_type varchar [not null]
+  portone_payment_id varchar [null, note: 'PortOne 값']
+  status varchar [not null]
+  received_at datetime(6) [not null]
+  processed_at datetime(6) [null]
+  duplicate_count int [not null]
+  indexes {
+    portone_webhook_id [unique, name: 'webhook_event_u1']
+  }
+  Note: '웹훅 수신'
+}
+
+Table business_event {
+  id bigint [pk, not null]
+  event_type varchar [not null]
+  dedup_key varchar [not null]
+  gathering_id bigint [not null]
+  reservation_id bigint [null]
+  store_request_id bigint [null]
+  payment_id bigint [null]
+  recorded_at datetime(6) [not null]
+  indexes {
+    dedup_key [unique, name: 'business_event_u1']
+  }
+  Note: '업무 결정·사건'
+}
+
+Table refund {
+  id bigint [pk, not null]
+  business_event_id bigint [not null]
+  payment_id bigint [not null]
+  amount bigint [not null]
+  current_cancellable_amount bigint [not null]
+  reason varchar [not null]
+  idempotency_key varchar [not null]
+  status varchar [not null]
+  pg_cancellation_id varchar [null, note: 'PortOne 값']
+  fail_reason varchar [null]
+  received_at datetime(6) [not null]
+  first_attempted_at datetime(6) [null]
+  completed_at datetime(6) [null]
+  last_reconciled_at datetime(6) [null]
+  last_reconcile_result varchar [null]
+  indexes {
+    (business_event_id, payment_id) [unique, name: 'refund_u1']
+    idempotency_key [unique, name: 'refund_u2']
+    pg_cancellation_id [unique, name: 'refund_u3']
+  }
+  Note: '원결제별 환불'
+}
+
+Table notification {
+  id bigint [pk, not null]
+  source_type varchar [not null]
+  source_id bigint [not null, note: '논리 참조(source_type에 따라 대상 테이블이 다름)']
+  notification_type varchar [not null]
+  recipient_member_id bigint [not null]
+  summary varchar [not null]
+  deadline_at datetime(6) [null]
+  created_at datetime(6) [not null]
+  read_at datetime(6) [null]
+  indexes {
+    (source_type, source_id, notification_type, recipient_member_id) [unique, name: 'notification_u1']
+  }
+  Note: '손님 알림함'
+}
+
+Table store_inbox {
+  id bigint [pk, not null]
+  store_id bigint [not null]
+  source_type varchar [not null]
+  source_id bigint [not null, note: '논리 참조(source_type에 따라 대상 테이블이 다름)']
+  item_type varchar [not null]
+  status varchar [not null]
+  created_at datetime(6) [not null]
+  handled_by bigint [null]
+  handled_at datetime(6) [null]
+  indexes {
+    (store_id, source_type, source_id, item_type) [unique, name: 'store_inbox_u1']
+  }
+  Note: '매장 업무함'
+}
+
+// 물리 FK
+Ref r01: store_staff.member_id > member.id
+Ref r02: store_staff.store_id > store.id
+Ref r03: store_staff.granted_by > member.id
+Ref r04: store_staff.revoked_by > member.id
+Ref r05: time_slot.store_id > store.id
+Ref r06: menu.store_id > store.id
+Ref r07: gathering.host_member_id > member.id
+Ref r08: gathering.time_slot_id > time_slot.id
+Ref r09: invite_link.gathering_id > gathering.id
+Ref r10: participant.gathering_id > gathering.id
+Ref r11: participant.member_id > member.id
+Ref r12: participant.time_slot_id > time_slot.id
+Ref r13: gathering_block.gathering_id > gathering.id
+Ref r14: gathering_block.member_id > member.id
+Ref r15: gathering_block.blocked_by > member.id
+Ref r16: companion.participant_id > participant.id
+Ref r17: cart_item.gathering_id > gathering.id
+Ref r18: cart_item.menu_id > menu.id
+Ref r19: cart_item.updated_by > member.id
+Ref r20: amount_confirmation.(gathering_id, member_id) > participant.(gathering_id, member_id)
+Ref r21: amount_confirmation.time_slot_id > time_slot.id
+Ref r22: share_exclusion_consent.(gathering_id, member_id) > participant.(gathering_id, member_id)
+Ref r23: order_sheet.gathering_id > gathering.id
+Ref r24: order_sheet.time_slot_id > time_slot.id
+Ref r25: order_sheet_item.order_sheet_id > order_sheet.id
+Ref r26: order_sheet_item.menu_id > menu.id
+Ref r27: payer_share.order_sheet_id > order_sheet.id
+Ref r28: payer_share.member_id > member.id
+Ref r29: payer_share.amount_confirmation_id > amount_confirmation.id
+Ref r30: payer_share.share_exclusion_consent_id > share_exclusion_consent.id
+Ref r31: store_request.order_sheet_id > order_sheet.id
+Ref r32: store_request.responded_by > store_staff.id
+Ref r33: reservation.(store_request_id, order_sheet_id) > store_request.(id, order_sheet_id)
+Ref r34: payment.(reservation_id, order_sheet_id) > reservation.(id, order_sheet_id)
+Ref r35: payment.(payer_share_id, order_sheet_id) > payer_share.(id, order_sheet_id)
+Ref r36: business_event.gathering_id > gathering.id
+Ref r37: business_event.reservation_id > reservation.id
+Ref r38: business_event.store_request_id > store_request.id
+Ref r39: business_event.payment_id > payment.id
+Ref r40: refund.business_event_id > business_event.id
+Ref r41: refund.payment_id > payment.id
+Ref r42: notification.recipient_member_id > member.id
+Ref r45: store_inbox.store_id > store.id
+Ref r46: store_inbox.handled_by > store_staff.id
+Ref r49: store_staff_grant_request.store_staff_id > store_staff.id
+
+// 논리 참조(물리 FK 없음, 도면의 점선)
+// R43: notification.source_id → business_event.id
+// R44: notification.source_id → refund.id
+// R47: store_inbox.source_id → store_request.id
+// R48: store_inbox.source_id → business_event.id
