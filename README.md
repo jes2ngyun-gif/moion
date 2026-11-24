@@ -9,8 +9,8 @@
 | 구분 | 상태 |
 |---|---|
 | 1단계 설계 문서 | 확정: [비즈니스 정책](docs/policy.md) v31, [ERD](docs/erd.md) v0.4(25개 테이블, [DBML](docs/erd.dbml)), [API 명세](docs/api.md) 37개, [개발 컨벤션](docs/convention.md) v0.1 |
-| 구현 | 프로젝트 뼈대만 있음. 테이블·API·테스트는 아직 구현하지 않음 |
-| 검증 | [검산 사례](docs/verification-cases.md)는 구현 전 기대 결과이며 테스트로 실행하지 않음 |
+| 구현 | Flyway V1으로 업무 테이블 25개와 DB 제약 생성(PR #2). API·서비스는 아직 구현하지 않음 |
+| 검증 | MySQL 8.4.13에서 스키마 구조·DB 제약 테스트 24개 통과(PR #2). [검산 사례](docs/verification-cases.md)는 서비스 구현 전 기대 결과 |
 
 ## 1단계에서 증명할 것
 
